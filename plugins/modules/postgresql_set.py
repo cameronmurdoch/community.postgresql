@@ -233,13 +233,11 @@ def param_guc_list_unquote(value):
 
 
 def param_get(cursor, module, name, is_guc_list_quote):
-    query = ("SELECT name, setting, unit, context, boot_val "
+    query = ("SELECT name, setting, unit, context, boot_val, current_setting(%(name)s) as current_val "
              "FROM pg_settings WHERE name = %(name)s")
     try:
         cursor.execute(query, {'name': name})
         info = cursor.fetchone()
-        cursor.execute("SHOW %s" % name)
-        val = cursor.fetchone()
 
     except Exception as e:
         module.fail_json(msg="Unable to get %s value due to : %s" % (name, to_native(e)))
@@ -249,7 +247,7 @@ def param_get(cursor, module, name, is_guc_list_quote):
                              "Please check its spelling or presence in your PostgreSQL version "
                              "(https://www.postgresql.org/docs/current/runtime-config.html)" % name)
 
-    current_val = val[name]
+    current_val = info['current_val']
     raw_val = info['setting']
     unit = info['unit']
     context = info['context']
