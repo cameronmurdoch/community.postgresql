@@ -233,7 +233,7 @@ def param_guc_list_unquote(value):
 
 
 def param_get(cursor, module, name, is_guc_list_quote):
-    query = ("SELECT name, setting, unit, context, boot_val, current_setting(%(name)s) as current_val "
+    query = ("SELECT name, setting, unit, context, boot_val, vartype, current_setting(%(name)s) as current_val "
              "FROM pg_settings WHERE name = %(name)s")
     try:
         cursor.execute(query, {'name': name})
@@ -252,11 +252,15 @@ def param_get(cursor, module, name, is_guc_list_quote):
     unit = info['unit']
     context = info['context']
     boot_val = info['boot_val']
+    vartype = info['vartype']
 
-    if current_val == 'True':
-        current_val = 'on'
-    elif current_val == 'False':
-        current_val = 'off'
+    # Check vartype to avoid damaging other strings
+    # is this even needed? Postgres always gives 'on' or 'off'
+    if vartype == "bool":
+        if current_val == 'True':
+            current_val = 'on'
+        elif current_val == 'False':
+            current_val = 'off'
 
     if unit == 'kB':
         if int(raw_val) > 0:
@@ -284,6 +288,7 @@ def param_get(cursor, module, name, is_guc_list_quote):
         'unit': unit,
         'boot_val': boot_val,
         'context': context,
+        'vartype': vartype
     }
 
 
@@ -467,11 +472,15 @@ def main():
     unit = res['unit']
     boot_val = res['boot_val']
     context = res['context']
+    vartype = res['vartype']
 
-    if value == 'True':
-        value = 'on'
-    elif value == 'False':
-        value = 'off'
+    # Check vartype to avoid damaging other strings
+    # Covert all values that postgres accepts to "on/off" to make check mode consistent
+    if vartype == "bool":
+        if value.lower() in ('on', 'true', 'yes', '1'):
+            value = 'on'
+        elif value.lower() in ('off', 'false', 'no', '0'):
+            value = 'off'
 
     kw['prev_val_pretty'] = current_val
     kw['value_pretty'] = deepcopy(kw['prev_val_pretty'])
